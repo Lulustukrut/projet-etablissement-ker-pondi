@@ -772,11 +772,13 @@ ul li::marker { color: var(--agora-orange); }
 
 <!-- Bouton d'impression -->
 <button class="print-button" onclick="window.print()">🖨️ Générer un PDF</button>
-  <button class="word-button no-print" onclick="saveHtmlFile()" style="background-color: #8DC63F;">💾 Sauvegarder le document</button>
+  <button id="save-btn" class="word-button no-print" onclick="saveToVercel()" style="background-color: #8DC63F;">💾 Sauvegarder le document</button>
 
 <!-- ============================================================ -->
 <!-- PAGE DE GARDE -->
 <!-- ============================================================ -->
+
+<div id="document-content">
 <div class="page cover-page">
   <img src="extracted_media/image2.png" class="cover-line-art" alt="Illustration line art">
   <img src="extracted_media/image8.png" class="cover-logo" alt="Logo Agora Services">
@@ -2477,7 +2479,90 @@ ul li::marker { color: var(--agora-orange); }
 
 
 
+
+</div>
 <script>
+
+// ================= VERCEL SYNC LOGIC =================
+// Fetch latest content on load from Vercel API
+document.addEventListener("DOMContentLoaded", () => {
+    fetch('/api/load')
+        .then(res => {
+            if (!res.ok) {
+                if (res.status === 404) {
+                    console.log("No previous data found. Using default HTML.");
+                    return null;
+                }
+                throw new Error("Failed to load");
+            }
+            return res.json();
+        })
+        .then(data => {
+            if (data && data.content) {
+                document.getElementById('document-content').innerHTML = data.content;
+                // Re-attach event listeners for editable elements
+                makeElementsEditable();
+            }
+        })
+        .catch(err => console.error("Error loading content:", err));
+});
+
+function makeElementsEditable() {
+    const textElements = document.querySelectorAll('h1, h2, h3, h4, h5, p, li, .value-title, .value-desc, .section-num-box, .cover-title, .cover-subtitle, .cover-year, .cover-residence, .section-title-text, .toc-label, .toc-sub a, .footer-text, .photo-placeholder');
+    textElements.forEach(el => {
+        if(el.children.length === 0 || el.tagName === 'LI' || el.tagName === 'P' || el.tagName.startsWith('H')) {
+            el.setAttribute('contenteditable', 'true');
+        }
+    });
+}
+
+async function saveToVercel() {
+    const btn = document.getElementById('save-btn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = "⏳ Sauvegarde en cours...";
+    btn.style.opacity = "0.7";
+    btn.disabled = true;
+
+    if (document.activeElement && document.activeElement.blur) {
+        document.activeElement.blur();
+    }
+
+    const content = document.getElementById('document-content').innerHTML;
+
+    try {
+        const response = await fetch('/api/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ content: content })
+        });
+        
+        if (!response.ok) throw new Error("API returned " + response.status);
+        
+        btn.innerHTML = "✅ Enregistré sur Vercel !";
+        btn.style.backgroundColor = "#28a745"; // Green
+        
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.style.backgroundColor = "#8DC63F";
+            btn.style.opacity = "1";
+            btn.disabled = false;
+        }, 3000);
+        
+    } catch (err) {
+        console.error(err);
+        btn.innerHTML = "❌ Erreur";
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.style.opacity = "1";
+            btn.disabled = false;
+        }, 3000);
+        alert("Une erreur s'est produite lors de la sauvegarde.");
+    }
+}
+// ====================================================
+
 // Activer l'édition sur tous les éléments de texte
 document.addEventListener("DOMContentLoaded", function() {
   const textElements = document.querySelectorAll('h1, h2, h3, h4, h5, p, li, .value-title, .value-desc, .section-num-box, .cover-title, .cover-subtitle, .cover-year, .cover-residence, .section-title-text, .toc-label, .toc-sub a, .footer-text, .photo-placeholder');
@@ -2601,22 +2686,7 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 // Fonction pour sauvegarder le fichier HTML avec les nouveaux textes
-function saveHtmlFile() {
-  // Cloner le document pour nettoyer un peu avant sauvegarde
-  const clone = document.documentElement.cloneNode(true);
-  const htmlContent = "<!DOCTYPE html>\n" + clone.outerHTML;
-  
-  const blob = new Blob([htmlContent], {type: "text/html;charset=utf-8"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "projet_etablissement.html";
-  
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  
-  alert("Fichier sauvegardé ! Remplacez l'ancien fichier par celui-ci pour conserver vos modifications.");
-}
+
 </script>
 
 
