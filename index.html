@@ -2585,10 +2585,10 @@ async function saveToVercel() {
 
 // Activer l'édition sur tous les éléments de texte
 document.addEventListener("DOMContentLoaded", function() {
-  const textElements = document.querySelectorAll('h1, h2, h3, h4, h5, p, li, .value-title, .value-desc, .section-num-box, .cover-title, .cover-subtitle, .cover-year, .cover-residence, .section-title-text, .toc-label, .toc-sub a, .footer-text, .photo-placeholder');
+  const textElements = document.querySelectorAll('h1, h2, h3, h4, h5, p, li, td, .value-title, .value-desc, .section-num-box, .cover-title, .cover-subtitle, .cover-year, .cover-residence, .section-title-text, .toc-label, .toc-sub a, .footer-text, .photo-placeholder');
   textElements.forEach(el => {
     // Ne pas rendre editable les éléments qui contiennent d'autres gros blocs
-    if(el.children.length === 0 || el.tagName === 'LI' || el.tagName === 'P' || el.tagName.startsWith('H')) {
+    if(el.children.length === 0 || el.tagName === 'LI' || el.tagName === 'P' || el.tagName.startsWith('H') || el.tagName === 'TD') {
       el.setAttribute('contenteditable', 'true');
       el.setAttribute('spellcheck', 'false'); // Eviter les soulignements rouges moches
     }
@@ -2610,25 +2610,45 @@ document.addEventListener("DOMContentLoaded", function() {
 
   fileInput.addEventListener('change', function(e) {
     const file = e.target.files[0];
-    if (file && currentImageTarget) {
+    if (file && typeof currentImageTarget !== 'undefined' && currentImageTarget) {
       const reader = new FileReader();
       reader.onload = function(event) {
-        if (currentImageTarget.tagName.toLowerCase() === 'img') {
-          currentImageTarget.src = event.target.result;
-          currentImageTarget.removeAttribute('srcset');
-        } else {
-          // Convert placeholder div to img
-          const img = document.createElement('img');
-          img.src = event.target.result;
-          img.className = "img-full";
-          img.style.borderRadius = "8px";
-          img.style.margin = "20px 0";
-          img.addEventListener('click', function(e) {
-            currentImageTarget = e.currentTarget;
-            document.getElementById('image-upload').click();
-          });
-          currentImageTarget.parentNode.replaceChild(img, currentImageTarget);
-        }
+        const imgObj = new Image();
+        imgObj.onload = function() {
+          const canvas = document.createElement('canvas');
+          let width = imgObj.width;
+          let height = imgObj.height;
+          const MAX_SIZE = 1200;
+          if (width > height && width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          } else if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(imgObj, 0, 0, width, height);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+
+          if (currentImageTarget.tagName.toLowerCase() === 'img') {
+            currentImageTarget.src = compressedBase64;
+            currentImageTarget.removeAttribute('srcset');
+          } else {
+            const img = document.createElement('img');
+            img.src = compressedBase64;
+            img.className = "img-full";
+            img.style.borderRadius = "8px";
+            img.style.margin = "20px 0";
+            img.addEventListener('click', function(e) {
+              currentImageTarget = e.currentTarget;
+              document.getElementById('image-upload').click();
+            });
+            currentImageTarget.parentNode.replaceChild(img, currentImageTarget);
+          }
+        };
+        imgObj.src = event.target.result;
       };
       reader.readAsDataURL(file);
     }
