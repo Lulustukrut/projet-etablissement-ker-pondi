@@ -2484,16 +2484,28 @@ ul li::marker { color: var(--agora-orange); }
 <script>
 
 // ================= CLOUD SYNC LOGIC =================
-const JSONBLOB_ID = "019e6d7e-e3e1-753f-ad1b-f788e524638a";
-const JSONBLOB_URL = "https://jsonblob.com/api/jsonBlob/" + JSONBLOB_ID;
+const POINTER_ID = "ff8081819d82fab6019e6d8563bd0fd7";
+const POINTER_URL = "https://api.restful-api.dev/objects/" + POINTER_ID;
 
 // Fetch latest content on load
 document.addEventListener("DOMContentLoaded", () => {
-    fetch(JSONBLOB_URL)
+    // Step 1: Get the latest blob ID from the Pointer
+    fetch(POINTER_URL)
         .then(res => res.json())
-        .then(data => {
-            if (data && data.content) {
-                document.getElementById('document-content').innerHTML = data.content;
+        .then(pointerData => {
+            if (pointerData && pointerData.data && pointerData.data.latestBlobId) {
+                const latestBlobId = pointerData.data.latestBlobId;
+                const blobUrl = "https://jsonblob.com/api/jsonBlob/" + latestBlobId;
+                
+                // Step 2: Fetch the actual HTML content from the Blob
+                return fetch(blobUrl);
+            }
+            throw new Error("Could not find latestBlobId in pointer");
+        })
+        .then(res => res.json())
+        .then(blobData => {
+            if (blobData && blobData.content) {
+                document.getElementById('document-content').innerHTML = blobData.content;
                 // Re-attach event listeners for editable elements
                 makeElementsEditable();
             }
@@ -2517,7 +2529,6 @@ async function saveToCloud() {
     btn.style.opacity = "0.7";
     btn.disabled = true;
 
-    // Clean up contenteditable active states if any
     if (document.activeElement && document.activeElement.blur) {
         document.activeElement.blur();
     }
@@ -2525,14 +2536,34 @@ async function saveToCloud() {
     const content = document.getElementById('document-content').innerHTML;
 
     try {
-        await fetch(JSONBLOB_URL, {
-            method: 'PUT',
+        // Step 1: Create a NEW JSONBlob with the huge content (bypasses PUT CORS issues)
+        const blobRes = await fetch("https://jsonblob.com/api/jsonBlob", {
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
             body: JSON.stringify({ content: content })
         });
+        
+        if (!blobRes.ok) throw new Error("Failed to create blob");
+        
+        const newBlobId = blobRes.headers.get("x-jsonblob-id");
+        if (!newBlobId) throw new Error("No blob ID returned");
+
+        // Step 2: Update the Pointer to point to the new Blob ID
+        const pointerRes = await fetch(POINTER_URL, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                data: { latestBlobId: newBlobId }
+            })
+        });
+
+        if (!pointerRes.ok) throw new Error("Failed to update pointer");
         
         btn.innerHTML = "✅ Enregistré pour tous !";
         btn.style.backgroundColor = "#28a745"; // Green
@@ -2552,7 +2583,7 @@ async function saveToCloud() {
             btn.style.opacity = "1";
             btn.disabled = false;
         }, 3000);
-        alert("Une erreur s'est produite lors de la sauvegarde sur le Cloud.");
+        alert("Une erreur s'est produite lors de la sauvegarde sur le Cloud. Détails: " + err.message);
     }
 }
 // ====================================================
