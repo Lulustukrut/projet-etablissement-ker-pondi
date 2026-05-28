@@ -1,4 +1,9 @@
-import { kv } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
+
+const redis = new Redis({
+  url: process.env.REDIS_URL,
+  token: process.env.REDIS_TOKEN,
+});
 
 export const config = {
   api: {
@@ -20,12 +25,11 @@ export default async function handler(request, response) {
       return response.status(400).json({ error: 'Content is required' });
     }
 
-    // Save the HTML content into Vercel KV under the key 'document_content'
-    await kv.set('document_content', content);
+    await redis.set('document_content', content);
 
     return response.status(200).json({ success: true });
   } catch (error) {
-    console.error('Error saving to KV:', error);
-    return response.status(500).json({ error: 'Failed to save to database' });
+    console.error('Error saving to Redis:', error);
+    return response.status(500).json({ error: 'Failed to save: ' + error.message });
   }
 }

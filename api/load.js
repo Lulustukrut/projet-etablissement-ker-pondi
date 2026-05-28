@@ -1,4 +1,9 @@
-import { kv } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
+
+const redis = new Redis({
+  url: process.env.REDIS_URL,
+  token: process.env.REDIS_TOKEN,
+});
 
 export default async function handler(request, response) {
   if (request.method !== 'GET') {
@@ -6,8 +11,7 @@ export default async function handler(request, response) {
   }
 
   try {
-    // Get the HTML content from Vercel KV
-    const content = await kv.get('document_content');
+    const content = await redis.get('document_content');
 
     if (!content) {
       return response.status(404).json({ error: 'No content found' });
@@ -15,7 +19,7 @@ export default async function handler(request, response) {
 
     return response.status(200).json({ content });
   } catch (error) {
-    console.error('Error loading from KV:', error);
-    return response.status(500).json({ error: 'Failed to load from database' });
+    console.error('Error loading from Redis:', error);
+    return response.status(500).json({ error: 'Failed to load: ' + error.message });
   }
 }
