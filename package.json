@@ -3,6 +3,7 @@
     "@upstash/redis": "^1.38.0",
     "@vercel/kv": "^3.0.0",
     "axios": "^1.16.1",
+    "ioredis": "^5.11.0",
     "jsdom": "^29.1.1"
   }
 }
