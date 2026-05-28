@@ -2508,12 +2508,25 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function makeElementsEditable() {
-    const textElements = document.querySelectorAll('h1, h2, h3, h4, h5, p, li, .value-title, .value-desc, .section-num-box, .cover-title, .cover-subtitle, .cover-year, .cover-residence, .section-title-text, .toc-label, .toc-sub a, .footer-text, .photo-placeholder');
+    const textElements = document.querySelectorAll('h1, h2, h3, h4, h5, p, li, td, .value-title, .value-desc, .section-num-box, .cover-title, .cover-subtitle, .cover-year, .cover-residence, .section-title-text, .toc-label, .toc-sub a, .footer-text, .photo-placeholder');
     textElements.forEach(el => {
-        if(el.children.length === 0 || el.tagName === 'LI' || el.tagName === 'P' || el.tagName.startsWith('H')) {
+        if(el.children.length === 0 || el.tagName === 'LI' || el.tagName === 'P' || el.tagName.startsWith('H') || el.tagName === 'TD') {
             el.setAttribute('contenteditable', 'true');
+            el.setAttribute('spellcheck', 'false');
         }
     });
+
+    const fileInput = document.getElementById('image-upload');
+    if (fileInput) {
+        document.querySelectorAll('img').forEach(img => {
+            img.onclick = function(e) {
+                if (typeof currentImageTarget !== 'undefined') {
+                    currentImageTarget = e.currentTarget;
+                    fileInput.click();
+                }
+            };
+        });
+    }
 }
 
 async function saveToVercel() {
