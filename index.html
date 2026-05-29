@@ -882,6 +882,34 @@ ul li::marker { color: var(--agora-orange); }
 .table-delete-btn:hover { transform: scale(1.15); background: #c0000d; }
 @media print { .table-delete-btn { display: none !important; } }
 
+
+/* ===== IMAGE DELETE BUTTON ===== */
+.image-wrapper { position: relative; max-width: 100%; }
+.image-delete-btn {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 28px;
+  height: 28px;
+  background: var(--agora-rouge);
+  color: white;
+  border: 2px solid white;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 24px;
+  text-align: center;
+  z-index: 100;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  padding: 0;
+  font-family: sans-serif;
+}
+.image-wrapper:hover .image-delete-btn { opacity: 1; }
+.image-delete-btn:hover { transform: scale(1.15); background: #c0000d; }
+@media print { .image-delete-btn { display: none !important; } }
+
 /* ===== FIX ORANGE TEXT INHERITANCE ===== */
 h4.sub-sub-title + p, h4.sub-sub-title + div,
 h3.sub-title + p, h3.sub-title + div { color: var(--noir); }
@@ -2698,8 +2726,22 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-// ===== TABLE DELETE BUTTON LOGIC =====
-function wrapTablesWithDeleteButton() {
+// ===== TABLE & IMAGE DELETE BUTTON LOGIC =====
+function attachDeleteListenersAndWrap() {
+  // 1. Attach listeners to existing table delete buttons
+  document.querySelectorAll('.table-delete-btn').forEach(function(btn) {
+    btn.onclick = function(ev) {
+      ev.stopPropagation();
+      if (confirm('Voulez-vous vraiment supprimer ce tableau ?')) {
+        var wrapper = btn.closest('.table-wrapper');
+        var prev = wrapper.previousElementSibling;
+        if (prev && prev.classList && prev.classList.contains('table-caption')) { prev.remove(); }
+        wrapper.remove();
+      }
+    };
+  });
+
+  // 2. Wrap new tables
   document.querySelectorAll('#document-content table').forEach(function(table) {
     if (table.parentElement && table.parentElement.classList.contains('table-wrapper')) return;
     var wrapper = document.createElement('div');
@@ -2721,8 +2763,73 @@ function wrapTablesWithDeleteButton() {
     };
     wrapper.appendChild(deleteBtn);
   });
+
+  // 3. Attach listeners to existing image delete buttons
+  document.querySelectorAll('.image-delete-btn').forEach(function(btn) {
+    btn.onclick = function(ev) {
+      ev.stopPropagation();
+      if (confirm('Voulez-vous vraiment supprimer cette image ?')) {
+        btn.closest('.image-wrapper').remove();
+      }
+    };
+  });
+
+  // 4. Wrap new images
+  document.querySelectorAll('#document-content img').forEach(function(img) {
+    if (img.classList.contains('cover-logo') || img.classList.contains('cover-line-art') || img.classList.contains('img-decorative')) return;
+    if (img.parentElement && img.parentElement.classList.contains('image-wrapper')) return;
+    
+    var wrapper = document.createElement('div');
+    wrapper.className = 'image-wrapper';
+    wrapper.style.position = 'relative';
+    
+    if (img.classList.contains('img-full')) {
+      wrapper.style.display = 'block';
+      wrapper.style.width = '100%';
+      wrapper.style.margin = '16px 0';
+      img.style.margin = '0';
+    } else if (img.classList.contains('img-medium')) {
+      wrapper.style.display = 'block';
+      wrapper.style.width = 'fit-content';
+      wrapper.style.margin = '16px auto';
+      img.style.margin = '0';
+    } else if (img.classList.contains('img-center')) {
+      wrapper.style.display = 'block';
+      wrapper.style.width = 'fit-content';
+      wrapper.style.margin = '20px auto';
+      img.style.margin = '0';
+    } else if (img.classList.contains('img-small')) {
+      wrapper.style.display = 'block';
+      wrapper.style.width = 'fit-content';
+      wrapper.style.margin = '12px auto';
+      img.style.margin = '0';
+    } else {
+      wrapper.style.display = 'inline-block';
+      if (img.style.margin) {
+        wrapper.style.margin = img.style.margin;
+        wrapper.style.display = 'block';
+        wrapper.style.width = 'fit-content';
+        img.style.margin = '0';
+      }
+    }
+    
+    img.parentNode.insertBefore(wrapper, img);
+    wrapper.appendChild(img);
+    
+    var deleteBtn = document.createElement('button');
+    deleteBtn.className = 'image-delete-btn no-print';
+    deleteBtn.innerHTML = '\u2715';
+    deleteBtn.title = 'Supprimer cette image';
+    deleteBtn.onclick = function(ev) {
+      ev.stopPropagation();
+      if (confirm('Voulez-vous vraiment supprimer cette image ?')) {
+        wrapper.remove();
+      }
+    };
+    wrapper.appendChild(deleteBtn);
+  });
 }
-document.addEventListener('DOMContentLoaded', wrapTablesWithDeleteButton);
+document.addEventListener('DOMContentLoaded', attachDeleteListenersAndWrap);
 
 
 // ================= VERCEL SYNC LOGIC =================
@@ -2744,7 +2851,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.getElementById('document-content').innerHTML = data.content;
                 // Re-attach event listeners for editable elements
                 makeElementsEditable();
-                wrapTablesWithDeleteButton();
+                attachDeleteListenersAndWrap();
             }
         })
         .catch(err => console.error("Error loading content:", err));
@@ -2889,6 +2996,7 @@ document.addEventListener("DOMContentLoaded", function() {
               document.getElementById('image-upload').click();
             });
             currentImageTarget.parentNode.replaceChild(img, currentImageTarget);
+            attachDeleteListenersAndWrap();
           }
         };
         imgObj.src = event.target.result;
@@ -2960,7 +3068,7 @@ document.addEventListener("DOMContentLoaded", function() {
         const sel = window.getSelection();
         sel.removeAllRanges();
         sel.addRange(lastSelection);
-        
+        attachDeleteListenersAndWrap();
         insertFileInput.value = '';
       };
       reader.readAsDataURL(file);
